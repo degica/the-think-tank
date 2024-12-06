@@ -110,17 +110,13 @@ class Ishocon1::WebApp < Sinatra::Base
     redirect '/login'
   end
 
-  CACHE = {}
-
   get '/' do
     page = params[:page].to_i || 0
     limit = 50
     offset = page * limit
-    cache_key = "products_page_#{page}"
 
     # Fetch products with pagination
-    CACHE[cache_key] ||= db.xquery("SELECT * FROM products ORDER BY id DESC LIMIT #{limit} OFFSET #{offset}").to_a
-    products ||= CACHE[cache_key]
+    products = db.xquery("SELECT * FROM products ORDER BY id DESC LIMIT #{limit} OFFSET #{offset}")
 
     # Get product IDs for batch fetching comments and counts
     product_ids = products.map { |p| p[:id] }
