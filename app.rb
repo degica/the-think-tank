@@ -1,7 +1,7 @@
 require 'sinatra/base'
 require 'mysql2'
 require 'mysql2-cs-bind'
-require 'erubis'
+require 'erubi'
 require 'dotenv/load' if ENV['DOTENV']
 require 'debug' if ENV['DOTENV']
 require 'redis'
