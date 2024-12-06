@@ -1,3 +1,5 @@
 #!/bin/bash -e
+
+bundle intall
 mysql --user root -ptest123 --host db -e "create database ishocon1" || true
 mysql --user root -ptest123 --host db --database ishocon1 < dump.sql
