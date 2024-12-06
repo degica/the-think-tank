@@ -3,23 +3,11 @@ require 'mysql2'
 require 'mysql2-cs-bind'
 require 'erubis'
 require 'dotenv/load' if ENV['DOTENV']
-require 'debug' if ENV['DOTENV']
 
 module Ishocon1
   class AuthenticationError < StandardError; end
   class PermissionDenied < StandardError; end
 end
-
-$CACHE = {}
-
-DB_CONFIG = {
-  host: ENV['ISHOCON1_DB_HOST'] || '127.0.0.1',
-  port: ENV['ISHOCON1_DB_PORT']&.to_i || 3306,
-  username: ENV['ISHOCON1_DB_USER'] || 'ishocon',
-  password: ENV['ISHOCON1_DB_PASSWORD'] || '',
-  database: ENV['ISHOCON1_DB_NAME'] || 'ishocon1',
-  reconnect: true
-}
 
 class Ishocon1::WebApp < Sinatra::Base
   session_secret = ENV['ISHOCON1_SESSION_SECRET'] || 'showwin_happy' * 10
@@ -27,36 +15,17 @@ class Ishocon1::WebApp < Sinatra::Base
   set :erb, escape_html: true
   set :public_folder, File.expand_path('../public', __FILE__)
   set :protection, true
-  
-  configure do
-    # # Create a direct client for use in configure block
-    # client = Mysql2::Client.new(DB_CONFIG)
-    # client.query_options.merge!(symbolize_keys: true)
-    #
-    # puts "Loading comments"
-    # $CACHE["COMMENTS"] = client.xquery("SELECT * from comments ORDER BY created_at DESC").to_a
-    #
-    # puts "Loading all products into cache"
-    # $CACHE["products"] ||= {}
-    # client.query("SELECT * FROM products ORDER BY id DESC").to_a.each do |product|
-    #   puts "Loading #{product[:id]}"
-    #
-    #   $CACHE["products"][product[:id]] = product
-    #
-    #   puts "Fetching comments"
-    #   $CACHE["products"][product[:id]][:comments] = $CACHE["COMMENTS"].filter { |comment| comment[:product_id] == product[:id] }
-    # end
-    
-    $CACHE["products"] = Marshal.load(File.read("bigdata.marshal"))
-
-    # Close the client after use
-    # client.close
-  end
 
   helpers do
     def config
       @config ||= {
-        db: DB_CONFIG
+        db: {
+          host: ENV['ISHOCON1_DB_HOST'] || '127.0.0.1',
+          port: ENV['ISHOCON1_DB_PORT'] && ENV['ISHOCON1_DB_PORT'].to_i,
+          username: ENV['ISHOCON1_DB_USER'] || 'ishocon',
+          password: ENV['ISHOCON1_DB_PASSWORD'] || '',
+          database: ENV['ISHOCON1_DB_NAME'] || 'ishocon1'
+        }
       }
     end
 
@@ -72,7 +41,6 @@ class Ishocon1::WebApp < Sinatra::Base
       )
       client.query_options.merge!(symbolize_keys: true)
       Thread.current[:ishocon1_db] = client
-
       client
     end
 
@@ -148,7 +116,7 @@ class Ishocon1::WebApp < Sinatra::Base
     offset = page * limit
 
     # Fetch products with pagination
-    products = $CACHE["products"].values[offset, limit]
+    products = db.xquery("SELECT * FROM products ORDER BY id DESC LIMIT #{limit} OFFSET #{offset}")
 
     # Get product IDs for batch fetching comments and counts
     product_ids = products.map { |p| p[:id] }
