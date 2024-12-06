@@ -110,46 +110,63 @@ class Ishocon1::WebApp < Sinatra::Base
     redirect '/login'
   end
 
+  CACHE = {}
+
   get '/' do
     page = params[:page].to_i || 0
     limit = 50
     offset = page * limit
 
-    # Fetch products with pagination
-    products = db.xquery("SELECT * FROM products ORDER BY id DESC LIMIT #{limit} OFFSET #{offset}")
+    # Define a cache key based on the query parameters
+    data = nil
+    cache_key = "products_page_#{page}"
 
-    # Get product IDs for batch fetching comments and counts
-    product_ids = products.map { |p| p[:id] }
-    
-    # Fetch comments for all products in one query
-    comments = db.xquery(<<~SQL, product_ids)
-      SELECT c.*, c.product_id
-      FROM comments AS c
-      WHERE c.product_id IN (#{product_ids.map { '?' }.join(', ')})
-      ORDER BY c.product_id, c.created_at DESC
-    SQL
-    
-    # Fetch comment counts for all products in one query
-    comment_counts = db.xquery(<<~SQL, product_ids)
-      SELECT product_id, COUNT(*) AS count
-      FROM comments
-      WHERE product_id IN (#{product_ids.map { '?' }.join(', ')})
-      GROUP BY product_id
-    SQL
-    
-    # Transform comment counts into a hash for quick lookup
-    comment_counts_by_product = comment_counts.each_with_object({}) do |row, hash|
-      hash[row[:product_id]] = row[:count]
+    if CACHE[cache_key]
+      data = CACHE[cache_key]
+    else
+
+      # Fetch products with pagination
+      products = db.xquery("SELECT * FROM products ORDER BY id DESC LIMIT #{limit} OFFSET #{offset}").to_a
+      product_ids = products.map { |p| p[:id] }
+      
+      # Fetch comments for all products in one query
+      comments = db.xquery(<<~SQL, product_ids)
+        SELECT c.*, c.product_id
+        FROM comments AS c
+        WHERE c.product_id IN (#{product_ids.map { '?' }.join(', ')})
+        ORDER BY c.product_id, c.created_at DESC
+      SQL
+      
+      # Fetch comment counts for all products in one query
+      comment_counts = db.xquery(<<~SQL, product_ids)
+        SELECT product_id, COUNT(*) AS count
+        FROM comments
+        WHERE product_id IN (#{product_ids.map { '?' }.join(', ')})
+        GROUP BY product_id
+      SQL
+      
+      # Transform comment counts into a hash for quick lookup
+      comment_counts_by_product = comment_counts.each_with_object({}) do |row, hash|
+        hash[row[:product_id]] = row[:count]
+      end
+      
+      # Group comments by product_id for quick lookup
+      comments_by_product = comments.group_by { |c| c[:product_id] }
+
+      data = {
+        products: products,
+        comments_by_product: comments_by_product,
+        comment_counts_by_product: comment_counts_by_product
+      }
+
+      CACHE[cache_key] = {
+        products: products,
+        comments_by_product: comments_by_product,
+        comment_counts_by_product: comment_counts_by_product
+      }
     end
-    
-    # Group comments by product_id for quick lookup
-    comments_by_product = comments.group_by { |c| c[:product_id] }
 
-    erb :index, locals: {
-      products: products,
-      comments_by_product: comments_by_product,
-      comment_counts_by_product: comment_counts_by_product
-    }
+    erb :index, locals: data
   end
 
   get '/users/:user_id' do
