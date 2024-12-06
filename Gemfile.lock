@@ -2,9 +2,18 @@ GEM
   remote: https://rubygems.org/
   specs:
     base64 (0.2.0)
+    connection_pool (2.4.1)
+    date (3.4.1)
+    debug (1.9.2)
+      irb (~> 1.10)
+      reline (>= 0.3.8)
     dotenv (3.1.4)
     erubis (2.7.0)
     foreman (0.88.1)
+    io-console (0.8.0)
+    irb (1.14.1)
+      rdoc (>= 4.0.0)
+      reline (>= 0.4.2)
     kgio (2.11.4)
     mustermann (3.0.3)
       ruby2_keywords (~> 0.0.1)
@@ -12,6 +21,9 @@ GEM
     mysql2-cs-bind (0.1.1)
       mysql2
     nio4r (2.7.4)
+    psych (5.2.1)
+      date
+      stringio
     puma (6.5.0)
       nio4r (~> 2.0)
     rack (3.1.8)
@@ -25,6 +37,14 @@ GEM
     rackup (2.2.1)
       rack (>= 3)
     raindrops (0.20.1)
+    rdoc (6.8.1)
+      psych (>= 4.0.0)
+    redis (5.3.0)
+      redis-client (>= 0.22.0)
+    redis-client (0.22.2)
+      connection_pool
+    reline (0.5.12)
+      io-console (~> 0.5)
     ruby2_keywords (0.0.5)
     sinatra (4.0.0)
       mustermann (~> 3.0)
@@ -32,6 +52,7 @@ GEM
       rack-protection (= 4.0.0)
       rack-session (>= 2.0.0, < 3)
       tilt (~> 2.0)
+    stringio (3.1.2)
     tilt (2.4.0)
     unicorn (6.1.0)
       kgio (~> 2.6)
@@ -41,6 +62,7 @@ PLATFORMS
   ruby
 
 DEPENDENCIES
+  debug
   dotenv
   erubis
   foreman
@@ -49,6 +71,7 @@ DEPENDENCIES
   puma
   rack-cache
   rackup
+  redis
   sinatra
   unicorn
 

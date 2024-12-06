@@ -4,13 +4,12 @@ require 'mysql2-cs-bind'
 require 'erubis'
 require 'dotenv/load' if ENV['DOTENV']
 require 'debug' if ENV['DOTENV']
+require 'redis'
 
 module Ishocon1
   class AuthenticationError < StandardError; end
   class PermissionDenied < StandardError; end
 end
-
-$CACHE = {}
 
 DB_CONFIG = {
   host: ENV['ISHOCON1_DB_HOST'] || '127.0.0.1',
@@ -21,6 +20,10 @@ DB_CONFIG = {
   reconnect: true
 }
 
+def get_product(id)
+  Marshal.load($redis.get(redis_key))
+end
+
 class Ishocon1::WebApp < Sinatra::Base
   session_secret = ENV['ISHOCON1_SESSION_SECRET'] || 'showwin_happy' * 10
   use Rack::Session::Cookie, key: 'rack.session', secret: session_secret
@@ -28,29 +31,15 @@ class Ishocon1::WebApp < Sinatra::Base
   set :public_folder, File.expand_path('../public', __FILE__)
   set :protection, true
   
-  configure do
-    # # Create a direct client for use in configure block
-    # client = Mysql2::Client.new(DB_CONFIG)
-    # client.query_options.merge!(symbolize_keys: true)
-    #
-    # puts "Loading comments"
-    # $CACHE["COMMENTS"] = client.xquery("SELECT * from comments ORDER BY created_at DESC").to_a
-    #
-    # puts "Loading all products into cache"
-    # $CACHE["products"] ||= {}
-    # client.query("SELECT * FROM products ORDER BY id DESC").to_a.each do |product|
-    #   puts "Loading #{product[:id]}"
-    #
-    #   $CACHE["products"][product[:id]] = product
-    #
-    #   puts "Fetching comments"
-    #   $CACHE["products"][product[:id]][:comments] = $CACHE["COMMENTS"].filter { |comment| comment[:product_id] == product[:id] }
-    # end
-    
-    $CACHE["products"] = Marshal.load(File.read("bigdata.marshal"))
 
-    # Close the client after use
-    # client.close
+  configure do
+    $redis = Redis.new(host: 'localhost', port: 6379)
+
+    data = File.read("bigdata.marshal")
+    $all_products = Marshal.load(data)
+    $all_products.each do |key, value|
+      $redis.set("product_#{key}", value)
+    end
   end
 
   helpers do
@@ -148,7 +137,7 @@ class Ishocon1::WebApp < Sinatra::Base
     offset = page * limit
 
     # Fetch products with pagination
-    products = $CACHE["products"].values[offset, limit]
+    products = $all_products.values[offset, limit]
 
     # Get product IDs for batch fetching comments and counts
     product_ids = products.map { |p| p[:id] }
@@ -205,7 +194,7 @@ SQL
   end
 
   get '/products/:product_id' do
-    product = db.xquery('SELECT * FROM products WHERE id = ?', params[:product_id]).first
+    product = $all_products[params[:product_id].to_i]
     comments = db.xquery('SELECT * FROM comments WHERE product_id = ?', params[:product_id])
     erb :product, locals: { product: product, comments: comments }
   end
