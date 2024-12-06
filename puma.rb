@@ -1,5 +1,5 @@
-workers Integer(ENV['WEB_CONCURRENCY'] || 4)
-threads_count = Integer(ENV['THREAD_COUNT'] || 5)
+workers Integer(ENV['WEB_CONCURRENCY'] || 10)
+threads_count = Integer(ENV['THREAD_COUNT'] || 12)
 threads threads_count, threads_count
 
 rackup 'config.ru'
