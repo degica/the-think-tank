@@ -134,11 +134,6 @@ class Ishocon1::WebApp < Sinatra::Base
                         product_id, current_user[:id]).first[:count]
       count > 0
     end
-
-    def create_comment(product_id, user_id, content)
-      db.xquery('INSERT INTO comments (product_id, user_id, content, created_at) VALUES (?, ?, ?, ?)', \
-        product_id, user_id, content, time_now_db)
-    end
   end
 
   error Ishocon1::AuthenticationError do
@@ -237,7 +232,7 @@ SQL
     authenticated!
 
     product = get_product(params[:product_id])
-    new_comment = {id => nil, product_id: params[:product_id], user_id: current_user[:id], content: params[:content], created_at: Time.now}
+    new_comment = {id: nil, product_id: params[:product_id], user_id: current_user[:id], content: params[:content], created_at: Time.now}
     product[:comments] << new_comment
 
     redirect "/users/#{current_user[:id]}"
