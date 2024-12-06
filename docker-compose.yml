@@ -6,7 +6,7 @@ services:
       dockerfile: Dockerfile
     ports:
      - "8080:8080"
-    command: ['bundle', 'exec', 'unicorn', '-c', 'unicorn_config.rb']
+    command: ['bundle', 'exec', 'puma', '-C', 'puma.rb']
     volumes:
       - bundle:/usr/local/bundle
       - .:/app
