@@ -2,8 +2,7 @@ require 'sinatra/base'
 require 'mysql2'
 require 'mysql2-cs-bind'
 require 'erubis'
-
-require 'dotenv/load' if ENV['RICHARDEV']
+require 'dotenv/load'
 
 module Ishocon1
   class AuthenticationError < StandardError; end
@@ -21,10 +20,10 @@ class Ishocon1::WebApp < Sinatra::Base
     def config
       @config ||= {
         db: {
-          host: ENV['ISHOCON1_DB_HOST'] || 'localhost',
+          host: ENV['ISHOCON1_DB_HOST'] || '127.0.0.1',
           port: ENV['ISHOCON1_DB_PORT'] && ENV['ISHOCON1_DB_PORT'].to_i,
           username: ENV['ISHOCON1_DB_USER'] || 'ishocon',
-          password: ENV['ISHOCON1_DB_PASSWORD'] || 'ishocon',
+          password: ENV['ISHOCON1_DB_PASSWORD'] || '',
           database: ENV['ISHOCON1_DB_NAME'] || 'ishocon1'
         }
       }
@@ -113,17 +112,44 @@ class Ishocon1::WebApp < Sinatra::Base
 
   get '/' do
     page = params[:page].to_i || 0
-    products = db.xquery("SELECT * FROM products ORDER BY id DESC LIMIT 50 OFFSET #{page * 50}")
-    cmt_query = <<SQL
-SELECT *
-FROM comments as c
-WHERE c.product_id = ?
-ORDER BY c.created_at DESC
-LIMIT 5
-SQL
-    cmt_count_query = 'SELECT count(*) as count FROM comments WHERE product_id = ?'
+    limit = 50
+    offset = page * limit
 
-    erb :index, locals: { products: products, cmt_query: cmt_query, cmt_count_query: cmt_count_query }
+    # Fetch products with pagination
+    products = db.xquery("SELECT * FROM products ORDER BY id DESC LIMIT #{limit} OFFSET #{offset}")
+
+    # Get product IDs for batch fetching comments and counts
+    product_ids = products.map { |p| p[:id] }
+    
+    # Fetch comments for all products in one query
+    comments = db.xquery(<<~SQL, product_ids)
+      SELECT c.*, c.product_id
+      FROM comments AS c
+      WHERE c.product_id IN (#{product_ids.map { '?' }.join(', ')})
+      ORDER BY c.product_id, c.created_at DESC
+    SQL
+    
+    # Fetch comment counts for all products in one query
+    comment_counts = db.xquery(<<~SQL, product_ids)
+      SELECT product_id, COUNT(*) AS count
+      FROM comments
+      WHERE product_id IN (#{product_ids.map { '?' }.join(', ')})
+      GROUP BY product_id
+    SQL
+    
+    # Transform comment counts into a hash for quick lookup
+    comment_counts_by_product = comment_counts.each_with_object({}) do |row, hash|
+      hash[row[:product_id]] = row[:count]
+    end
+    
+    # Group comments by product_id for quick lookup
+    comments_by_product = comments.group_by { |c| c[:product_id] }
+
+    erb :index, locals: {
+      products: products,
+      comments_by_product: comments_by_product,
+      comment_counts_by_product: comment_counts_by_product
+    }
   end
 
   get '/users/:user_id' do
