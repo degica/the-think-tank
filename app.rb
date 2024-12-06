@@ -110,44 +110,38 @@ class Ishocon1::WebApp < Sinatra::Base
     redirect '/login'
   end
 
-  # Global cache (you can use a thread-safe structure like Concurrent::Hash)
-  CACHE = {}
-
   get '/' do
     page = params[:page].to_i || 0
     limit = 50
     offset = page * limit
 
-    # Cache key for products
-    products_cache_key = "products_page_#{page}"
-    products = CACHE[products_cache_key] ||= db.xquery("SELECT * FROM products ORDER BY id DESC LIMIT #{limit} OFFSET #{offset}")
+    # Fetch products with pagination
+    products = db.xquery("SELECT * FROM products ORDER BY id DESC LIMIT #{limit} OFFSET #{offset}")
 
     # Get product IDs for batch fetching comments and counts
     product_ids = products.map { |p| p[:id] }
-
-    # Cache key for comments
-    comments_cache_key = "comments_#{product_ids.sort.join('_')}"
-    comments = CACHE[comments_cache_key] ||= db.xquery(<<~SQL, product_ids)
-    SELECT c.*, c.product_id
-    FROM comments AS c
-    WHERE c.product_id IN (#{product_ids.map { '?' }.join(', ')})
-    ORDER BY c.product_id, c.created_at DESC
+    
+    # Fetch comments for all products in one query
+    comments = db.xquery(<<~SQL, product_ids)
+      SELECT c.*, c.product_id
+      FROM comments AS c
+      WHERE c.product_id IN (#{product_ids.map { '?' }.join(', ')})
+      ORDER BY c.product_id, c.created_at DESC
     SQL
-
-    # Cache key for comment counts
-    comment_counts_cache_key = "comment_counts_#{product_ids.sort.join('_')}"
-    comment_counts = CACHE[comment_counts_cache_key] ||= db.xquery(<<~SQL, product_ids)
-    SELECT product_id, COUNT(*) AS count
-    FROM comments
-    WHERE product_id IN (#{product_ids.map { '?' }.join(', ')})
-    GROUP BY product_id
+    
+    # Fetch comment counts for all products in one query
+    comment_counts = db.xquery(<<~SQL, product_ids)
+      SELECT product_id, COUNT(*) AS count
+      FROM comments
+      WHERE product_id IN (#{product_ids.map { '?' }.join(', ')})
+      GROUP BY product_id
     SQL
-
+    
     # Transform comment counts into a hash for quick lookup
     comment_counts_by_product = comment_counts.each_with_object({}) do |row, hash|
       hash[row[:product_id]] = row[:count]
     end
-
+    
     # Group comments by product_id for quick lookup
     comments_by_product = comments.group_by { |c| c[:product_id] }
 
