@@ -1,0 +1,9 @@
+{
+    // See: https://code.visualstudio.com/docs/devcontainers/create-dev-container
+    //      https://containers.dev/implementors/spec/
+    "name": "degica/kosucon",
+    "dockerComposeFile": "../docker-compose.yml",
+    "service": "web",
+    "workspaceFolder": "/app",
+    "shutdownAction": "stopCompose"
+}
