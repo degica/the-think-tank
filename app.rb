@@ -195,8 +195,7 @@ SQL
 
   get '/products/:product_id' do
     product = $all_products[params[:product_id].to_i]
-    comments = [] #db.xquery('SELECT * FROM comments WHERE product_id = ?', params[:product_id])
-    erb :product, locals: { product: product, comments: comments }
+    erb :product, locals: { product: product, comments: [] }
   end
 
   post '/products/buy/:product_id' do
