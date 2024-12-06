@@ -3,6 +3,8 @@ require 'mysql2'
 require 'mysql2-cs-bind'
 require 'erubis'
 
+require 'dotenv/load' if ENV['RICHARDEV']
+
 module Ishocon1
   class AuthenticationError < StandardError; end
   class PermissionDenied < StandardError; end
@@ -115,8 +117,6 @@ class Ishocon1::WebApp < Sinatra::Base
     cmt_query = <<SQL
 SELECT *
 FROM comments as c
-INNER JOIN users as u
-ON c.user_id = u.id
 WHERE c.product_id = ?
 ORDER BY c.created_at DESC
 LIMIT 5
