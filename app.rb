@@ -24,6 +24,15 @@ def get_product(id)
   Marshal.load($redis.get(redis_key))
 end
 
+def cache(key, &block)
+  hit = $redis.get(key)
+  return hit if hit
+
+  value = block.call
+  $redis.set(key, value)
+  value
+end
+
 class Ishocon1::WebApp < Sinatra::Base
   session_secret = ENV['ISHOCON1_SESSION_SECRET'] || 'showwin_happy' * 10
   use Rack::Session::Cookie, key: 'rack.session', secret: session_secret
@@ -34,6 +43,7 @@ class Ishocon1::WebApp < Sinatra::Base
 
   configure do
     $redis = Redis.new(host: 'localhost', port: 6379)
+    # $redis = Redis.new(host: 'redis', port: 6379)
 
     data = File.read("bigdata.marshal")
     $all_products = Marshal.load(data)
@@ -182,7 +192,9 @@ ON h.product_id = p.id
 WHERE h.user_id = ?
 ORDER BY h.id DESC
 SQL
-    products = db.xquery(products_query, params[:user_id])
+    products = cache("/users/#{params[:user_id]}") {
+      db.xquery(products_query, params[:user_id])
+    }
 
     total_pay = 0
     products.each do |product|

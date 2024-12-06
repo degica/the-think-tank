@@ -33,6 +33,8 @@ services:
       test:  mysql --password=test123 -e "show databases;"
     volumes:
      - dbdata:/var/lib/mysql
+  redis:
+    image: redis
 volumes:
   dbdata:
   bundle:
