@@ -237,13 +237,21 @@ SQL
 
   post '/products/buy/:product_id' do
     authenticated!
-    buy_product(params[:product_id], current_user[:id])
+
+    Thread.new do
+      buy_product(params[:product_id], current_user[:id])
+    end
+
     redirect "/users/#{current_user[:id]}"
   end
 
   post '/comments/:product_id' do
     authenticated!
-    create_comment(params[:product_id], current_user[:id], params[:content])
+
+    Thread.new do
+      create_comment(params[:product_id].to_i, current_user[:id], params[:content])
+    end
+
     redirect "/users/#{current_user[:id]}"
   end
 
