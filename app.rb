@@ -179,18 +179,18 @@ class Ishocon1::WebApp < Sinatra::Base
     product_ids = products.map { |p| p[:id] }
     
     # Fetch comments for all products in one query
-    comments = db.xquery(<<~SQL, product_ids)
+    comments = db.xquery(<<~SQL) #, product_ids)
       SELECT c.*, c.product_id
       FROM comments AS c
-      WHERE c.product_id IN (#{product_ids.map { '?' }.join(', ')})
+      WHERE c.product_id IN (#{product_ids.join(',')})
       ORDER BY c.product_id, c.created_at DESC
     SQL
     
     # Fetch comment counts for all products in one query
-    comment_counts = db.xquery(<<~SQL, product_ids)
+    comment_counts = db.xquery(<<~SQL) # , product_ids)
       SELECT product_id, COUNT(*) AS count
       FROM comments
-      WHERE product_id IN (#{product_ids.map { '?' }.join(', ')})
+      WHERE product_id IN (#{product_ids.join(',')})
       GROUP BY product_id
     SQL
     
