@@ -115,6 +115,8 @@ class Ishocon1::WebApp < Sinatra::Base
     cmt_query = <<SQL
 SELECT *
 FROM comments as c
+INNER JOIN users as u
+ON c.user_id = u.id
 WHERE c.product_id = ?
 ORDER BY c.created_at DESC
 LIMIT 5
