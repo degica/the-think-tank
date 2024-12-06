@@ -20,6 +20,8 @@ GEM
       rack (>= 3.0.0, < 4)
     rack-session (2.0.0)
       rack (>= 3.0.0)
+    rackup (2.2.1)
+      rack (>= 3)
     raindrops (0.20.1)
     ruby2_keywords (0.0.5)
     sinatra (4.0.0)
@@ -43,6 +45,7 @@ DEPENDENCIES
   mysql2 (= 0.5.6)
   mysql2-cs-bind
   puma
+  rackup
   sinatra
   unicorn
 
