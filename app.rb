@@ -192,9 +192,8 @@ ON h.product_id = p.id
 WHERE h.user_id = ?
 ORDER BY h.id DESC
 SQL
-    products = cache("/users/#{params[:user_id]}") {
-      db.xquery(products_query, params[:user_id])
-    }
+    # products = cache("/users/#{params[:user_id]}") {
+    products = db.xquery(products_query, params[:user_id])
 
     total_pay = 0
     products.each do |product|
