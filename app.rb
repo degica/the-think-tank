@@ -20,9 +20,13 @@ DB_CONFIG = {
   reconnect: true
 }
 
-def get_product(id)
-  Marshal.load($redis.get(redis_key))
-end
+# def get_product(id)
+#   Marshal.load($redis.get("product_#{id}"))
+# end
+#
+# def set_product(product)
+#   $redis.set("product_#{product[:id]}", Marshal.dump(product))
+# end
 
 def cache(key, &block)
   hit = $redis.get(key)
@@ -48,8 +52,29 @@ class Ishocon1::WebApp < Sinatra::Base
     data = File.read("bigdata.marshal")
     $all_products = Marshal.load(data)
     $all_products.each do |key, value|
-      $redis.set("product_#{key}", value)
+      $redis.set("product_#{key}", Marshal.dump(value))
     end
+
+    config = { db: DB_CONFIG }
+
+    client = Mysql2::Client.new(
+      host: config[:db][:host],
+      port: config[:db][:port],
+      username: config[:db][:username],
+      password: config[:db][:password],
+      database: config[:db][:database],
+      reconnect: true
+    )
+    client.query_options.merge!(symbolize_keys: true)
+
+    $all_users = {}
+    $all_users_by_email = {}
+    client.xquery('SELECT * FROM users').each do |user|
+      $all_users[user[:id]] = user.to_hash
+      $all_users_by_email[user[:email]] = user.to_hash
+    end
+
+    client.close
   end
 
   helpers do
@@ -72,6 +97,7 @@ class Ishocon1::WebApp < Sinatra::Base
       client.query_options.merge!(symbolize_keys: true)
       Thread.current[:ishocon1_db] = client
 
+
       client
     end
 
@@ -80,7 +106,7 @@ class Ishocon1::WebApp < Sinatra::Base
     end
 
     def authenticate(email, password)
-      user = db.xquery('SELECT * FROM users WHERE email = ?', email).first
+      user = $all_users_by_email[email]
       fail Ishocon1::AuthenticationError unless user.nil? == false && user[:password] == password
       session[:user_id] = user[:id]
     end
@@ -90,7 +116,7 @@ class Ishocon1::WebApp < Sinatra::Base
     end
 
     def current_user
-      db.xquery('SELECT * FROM users WHERE id = ?', session[:user_id]).first
+      $all_users[session[:user_id].to_i]
     end
 
     # def update_last_login(user_id)
@@ -200,7 +226,7 @@ SQL
       total_pay += product[:price]
     end
 
-    user = db.xquery('SELECT * FROM users WHERE id = ?', params[:user_id]).first
+    user = $all_users[params[:user_id].to_i]
     erb :mypage, locals: { products: products, user: user, total_pay: total_pay }
   end
 
