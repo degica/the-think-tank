@@ -20,13 +20,13 @@ DB_CONFIG = {
   reconnect: true
 }
 
-# def get_product(id)
-#   Marshal.load($redis.get("product_#{id}"))
-# end
-#
-# def set_product(product)
-#   $redis.set("product_#{product[:id]}", Marshal.dump(product))
-# end
+def get_product(id)
+  Marshal.load($redis.get("product_#{id}"))
+end
+
+def set_product(product)
+  $redis.set("product_#{product[:id]}", Marshal.dump(product))
+end
 
 def cache(key, &block)
   hit = $redis.get(key)
@@ -187,18 +187,10 @@ class Ishocon1::WebApp < Sinatra::Base
     SQL
     
     # Fetch comment counts for all products in one query
-    comment_counts = db.xquery(<<~SQL) # , product_ids)
-      SELECT product_id, COUNT(*) AS count
-      FROM comments
-      WHERE product_id IN (#{product_ids.join(',')})
-      GROUP BY product_id
-    SQL
-    
-    # Transform comment counts into a hash for quick lookup
-    comment_counts_by_product = comment_counts.each_with_object({}) do |row, hash|
-      hash[row[:product_id]] = row[:count]
-    end
-    
+    comment_counts_by_product = product_ids.map {|id|
+      [id, get_product(id)[:comments].size]
+    }.to_h
+
     # Group comments by product_id for quick lookup
     comments_by_product = comments.group_by { |c| c[:product_id] }
 
@@ -243,7 +235,11 @@ SQL
 
   post '/comments/:product_id' do
     authenticated!
-    create_comment(params[:product_id], current_user[:id], params[:content])
+
+    product = get_product(params[:product_id])
+    new_comment = {id => nil, product_id: params[:product_id], user_id: current_user[:id], content: params[:content], created_at: Time.now}
+    product[:comments] << new_comment
+
     redirect "/users/#{current_user[:id]}"
   end
 
